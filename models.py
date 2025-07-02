@@ -17,11 +17,13 @@ class BaseEntity:
 
 class Obra(BaseEntity):
     def __init__(self, titulo, autor, ano, categoria, quantidade=1):
+        super().__init__()
         self.titulo = titulo
         self.autor = autor
         self.ano = ano
         self.categoria = categoria
-        self.quatidade = quantidade
+        self.quantidade = quantidade
+
     
     def disponivel(self, estoque):
         return estoque.get(self.id, 0) > 0
@@ -31,6 +33,7 @@ class Obra(BaseEntity):
     
 class Usuario(BaseEntity):
     def __init__(self, nome, email):
+        super().__init__()
         self.nome = nome
         self.email = email
 
@@ -41,10 +44,10 @@ class Usuario(BaseEntity):
         return f"{self.nome}"
 
 class Emprestimo(BaseEntity):
-    def __init__(self, obra, ususario, data_retirada, data_prev_devol):
-        super.__init__()
+    def __init__(self, obra, usuario, data_retirada, data_prev_devol):
+        super().__init__()
         self.obra = obra
-        self.ususario = ususario
+        self.usuario = usuario 
         self.data_retirada = data_retirada
         self.data_prev_devol = data_prev_devol
     

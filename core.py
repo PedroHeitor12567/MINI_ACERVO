@@ -1,4 +1,6 @@
-from models import BaseEntity, Obra, Usuario, Emprestimo
+from models import BaseEntity, Obra, Usuario, Emprestimo  
+from repositorio import salvar_obra, salvar_usuario, salvar_emprestimo
+from datetime import date
 
 class Acervo:
     def __init__(self):
@@ -30,9 +32,18 @@ class Acervo:
     
     def adicionar(self, obra):
         __valida_obra(obra)
-        
+        pass
 
 def __valida_obra(self, obra):
         from models import Obra as ObraClass
         if not isinstance(obra, ObraClass):
             raise TypeError(f'O tipo obra ers esperado, porém apareceu {type(obra).__name__}.')
+
+livro = Obra("Dom Casmurro", "Machado de Assis", 1899, "Romance", 3)
+usuario = Usuario("Maria", "maria@email.com")
+emprestimo = Emprestimo(livro, usuario, date.today(), date(2025, 7, 15))
+
+# Salvando no banco
+salvar_obra(livro)
+salvar_usuario(usuario)
+salvar_emprestimo(emprestimo)
