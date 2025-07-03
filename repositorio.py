@@ -1,3 +1,4 @@
+import re
 from connect import conectar
 
 def salvar_obra(obra):
@@ -85,4 +86,17 @@ def deletar_emeprestimos(id_empres):
     conn.close()
     print("Obra excluída com sucesso.")
 
-deletar_user("e82758aa-f765-461f-9de6-8b550cda39ef")
+
+def validar_email(email: str) -> bool:
+    """
+    Valida se um e-mail tem o formato correto.
+
+    Args:
+        email (str): E-mail a ser validado.
+
+    Returns:
+        bool: True se for válido, False caso contrário.
+    """
+    padrao = r'^[\w\.-]+@[\w\.-]+\.\w{2,}$'
+    if re.match(padrao, email):
+        return "✅ email válido!" 

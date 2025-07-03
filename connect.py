@@ -5,5 +5,6 @@ def conectar():
         host="localhost",
         database="Acervo",
         user="postgres",
-        password="plph2919"  
+        port="5432",
+        password="plph2919"
     )

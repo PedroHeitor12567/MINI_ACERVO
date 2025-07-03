@@ -229,10 +229,17 @@ livro = Obra("Dom Casmurro", "Machado de Assis", 1899, "Romance", 3)
 usuario = Usuario("Maria", "maria@email.com")
 emprestimo = Emprestimo(livro, usuario, date.today(), date(2025, 7, 15))
 print(emprestimo.dias_atraso(date(2025, 7, 17)))
+livro2 = Obra("1984", "George Orwell", 1949, "Romance", 5)
 # Salvando no repositório
+salvar_obra(livro)
+salvar_obra(livro2)
+salvar_usuario(usuario)
+salvar_emprestimo(emprestimo)
+
 
 acervo = Acervo()  # cria a instância
 acervo += livro    # adiciona a obra
+acervo += livro2
 acervo.emprestar(livro, usuario, dias=7)  # realiza o empréstimo
 tabela = acervo.relatorio_inventario()  # chama o método corretamente
 console = Console()
