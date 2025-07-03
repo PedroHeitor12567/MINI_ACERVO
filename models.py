@@ -94,6 +94,7 @@ class Emprestimo(BaseEntity):
         self.usuario = usuario 
         self.data_retirada = data_retirada
         self.data_prev_devol = data_prev_devol
+        self.data_devolucao = None
 
     def marcar_devolucao(self, data_dev_real):
         """Registra a data real de devolução.

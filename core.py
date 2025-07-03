@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 from rich.table import Table
 from models import Obra, Usuario, Emprestimo
-from repositorio import salvar_obra, salvar_usuario, salvar_emprestimo
+from repositorio import salvar_obra, salvar_usuario, salvar_emprestimo, deletar_emeprestimos, deletar_user, deletar_obra
+from rich.console import Console
 
 class Acervo:
     """
@@ -229,6 +230,10 @@ usuario = Usuario("Maria", "maria@email.com")
 emprestimo = Emprestimo(livro, usuario, date.today(), date(2025, 7, 15))
 print(emprestimo.dias_atraso(date(2025, 7, 17)))
 # Salvando no repositório
-salvar_obra(livro)
-salvar_usuario(usuario)
-salvar_emprestimo(emprestimo)
+
+acervo = Acervo()  # cria a instância
+acervo += livro    # adiciona a obra
+acervo.emprestar(livro, usuario, dias=7)  # realiza o empréstimo
+tabela = acervo.relatorio_inventario()  # chama o método corretamente
+console = Console()
+console.print(tabela)
