@@ -55,7 +55,6 @@ class Emprestimo(BaseEntity):
         self.data_devol = data_dev_real
     
     def dias_atraso(self, data_ref):
-        if self.data_ref > (self.data_prev_devol):
-            return (self.data_ref - self.data_prev_devol).days
+        if data_ref > (self.data_prev_devol):
+            return (data_ref - self.data_prev_devol).days
         return 0
-    
