@@ -28,7 +28,7 @@ class BaseEntity:
 class Obra(BaseEntity):
     """Representa uma obra no acervo (livro, revista, etc)."""
 
-    def __init__(self, titulo, autor, ano, categoria, quantidade=1):
+    def __init__(self, titulo, autor, ano, categoria, quantidade):
         """
         Args:
             titulo (str): Título da obra.

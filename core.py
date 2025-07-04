@@ -1,8 +1,6 @@
 from datetime import date, timedelta
 from rich.table import Table
 from models import Obra, Usuario, Emprestimo
-from repositorio import salvar_obra, salvar_usuario, salvar_emprestimo, deletar_emeprestimos, deletar_user, deletar_obra
-from rich.console import Console
 
 class Acervo:
     """
@@ -11,7 +9,13 @@ class Acervo:
     """
 
     def __init__(self):
-        """Inicializa as estruturas de dados internas do acervo."""
+        """
+        Inicializa as estruturas de dados internas do acervo:
+        - obras: dicionário {titulo: Obra}
+        - usuarios: conjunto de usuários cadastrados
+        - estoque: dicionário {id_obra: quantidade disponível}
+        - historico_emprestimos: lista de todos os empréstimos realizados
+        """
         self.obras = {}
         self.usuarios = set()
         self.estoque = {}
@@ -19,7 +23,8 @@ class Acervo:
 
     def __iadd__(self, obra: Obra):
         """
-        Adiciona uma obra ao acervo ou incrementa a quantidade no estoque.
+        Sobrecarga do operador '+=' para adicionar uma obra ao acervo
+        ou incrementar a quantidade no estoque se já existir.
 
         Args:
             obra (Obra): Obra a ser adicionada.
@@ -37,7 +42,8 @@ class Acervo:
 
     def __isub__(self, obra: Obra):
         """
-        Remove uma unidade da obra do acervo ou exclui completamente se for última.
+        Sobrecarga do operador '-=' para remover uma unidade da obra
+        do acervo ou excluí-la completamente se for o último exemplar.
 
         Args:
             obra (Obra): Obra a ser removida.
@@ -56,7 +62,7 @@ class Acervo:
 
     def adicionar(self, obra: Obra):
         """
-        Adiciona uma obra ao acervo (forma alternativa ao operador "+=").
+        Adiciona uma obra ao acervo (forma alternativa ao operador '+=')
 
         Args:
             obra (Obra): Obra a ser adicionada.
@@ -65,7 +71,7 @@ class Acervo:
 
     def remover(self, obra: Obra):
         """
-        Remove uma obra do acervo (forma alternativa ao operador "-=").
+        Remove uma obra do acervo (forma alternativa ao operador '-=')
 
         Args:
             obra (Obra): Obra a ser removida.
@@ -79,7 +85,7 @@ class Acervo:
         Args:
             obra (Obra): Obra a ser emprestada.
             usuario (Usuario): Usuário que está pegando emprestado.
-            dias (int): Prazo de empréstimo em dias. Padrão é 7.
+            dias (int, opcional): Prazo de empréstimo em dias. Padrão é 7.
 
         Returns:
             Emprestimo: Objeto representando o empréstimo.
@@ -117,7 +123,7 @@ class Acervo:
             dias_extra (int): Dias adicionais para prorrogação.
 
         Raises:
-            ValueError: Se a nova data for anterior ou igual à atual.
+            ValueError: Se a nova data for anterior ou igual à data atual de devolução prevista.
         """
         nova_data = emprestimo.data_prev_devol + timedelta(days=dias_extra)
         if nova_data <= emprestimo.data_prev_devol:
@@ -140,7 +146,7 @@ class Acervo:
 
     def relatorio_inventario(self) -> Table:
         """
-        Gera uma tabela com todas as obras cadastradas no acervo e suas quantidades.
+        Gera uma tabela formatada com todas as obras cadastradas no acervo e suas quantidades.
 
         Returns:
             Table: Tabela formatada com dados das obras.
@@ -183,7 +189,7 @@ class Acervo:
 
     def historico_usuario(self, usuario: Usuario) -> Table:
         """
-        Exibe o histórico de empréstimos de um usuário.
+        Exibe o histórico de empréstimos de um usuário em formato de tabela.
 
         Args:
             usuario (Usuario): Usuário para consulta.
@@ -223,24 +229,3 @@ class Acervo:
         """
         if not isinstance(obra, Obra):
             raise TypeError(f"Esperado Obra, mas veio {type(obra).__name__}")
-        
-# Teste do sistema
-livro = Obra("Dom Casmurro", "Machado de Assis", 1899, "Romance", 3)
-usuario = Usuario("Maria", "maria@email.com")
-emprestimo = Emprestimo(livro, usuario, date.today(), date(2025, 7, 15))
-print(emprestimo.dias_atraso(date(2025, 7, 17)))
-livro2 = Obra("1984", "George Orwell", 1949, "Romance", 5)
-# Salvando no repositório
-salvar_obra(livro)
-salvar_obra(livro2)
-salvar_usuario(usuario)
-salvar_emprestimo(emprestimo)
-
-
-acervo = Acervo()  # cria a instância
-acervo += livro    # adiciona a obra
-acervo += livro2
-acervo.emprestar(livro, usuario, dias=7)  # realiza o empréstimo
-tabela = acervo.relatorio_inventario()  # chama o método corretamente
-console = Console()
-console.print(tabela)

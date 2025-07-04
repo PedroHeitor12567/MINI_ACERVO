@@ -1,10 +1,23 @@
 import psycopg2 as pg
 
 def conectar():
-    return pg.connect(
-        host="localhost",
-        database="Acervo",
-        user="postgres",
-        port="5432",
-        password="plph2919"
-    )
+    """
+    Estabelece e retorna uma conexão com o banco de dados PostgreSQL.
+
+    Returns:
+        connection: Objeto de conexão com o banco.
+    
+    Raises:
+        psycopg2.DatabaseError: Se ocorrer erro na conexão.
+    """
+    try:
+        conn = pg.connect(
+            host="localhost",
+            database="Acervo",
+            user="postgres",
+            password="plph2919"
+        )
+        return conn
+    except pg.DatabaseError as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        raise
