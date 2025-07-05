@@ -103,4 +103,4 @@ Este projeto está licenciado sob a [MIT License](LICENSE).
 
 - [@PedroHeitor12567](https://github.com/PedroHeitor12567) 
 - [@Wallyson-fer](https://github.com/Wallyson-fer)
-Desenvolvedores Python & Backend
+## Desenvolvedores Python & Backend 💻
