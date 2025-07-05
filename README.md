@@ -59,9 +59,9 @@ O projeto está organizado em 6 arquivos principais:
 
 - Python instalado
 - PostgreSQL configurado
-- Biblioteca `psycopg2` instalada
-- Para instalar o resto basta fazer:
-    pip install -r requirements.txt
+- Biblioteca `psycopg2` instalada:
+  ```bash
+  pip install -r requeriments.txt
   ```
 
 ---
@@ -101,6 +101,6 @@ Este projeto está licenciado sob a [MIT License](LICENSE).
 
 ## 👨‍💻 Desenvolvedores
 
-@PedroHeitor12567 
-@Wallyson-fer
-Desenvolvedor Python & Backend
+- [@PedroHeitor12567](https://github.com/PedroHeitor12567) 
+- [@Wallyson-fer](https://github.com/Wallyson-fer)
+Desenvolvedores Python & Backend
