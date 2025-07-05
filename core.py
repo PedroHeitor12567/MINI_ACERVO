@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from rich.table import Table
 from models import Obra, Usuario, Emprestimo
+from connect import conectar
 
 class Acervo:
     """
@@ -34,10 +35,10 @@ class Acervo:
         """
         self._valida_obra(obra)
         if obra.titulo in self.obras:
-            self.estoque[obra.id] = self.estoque.get(obra.id, 0) + obra.quantidade
+            self.estoque[obra.ident] = self.estoque.get(obra.ident, 0) + obra.quantidade
         else:
             self.obras[obra.titulo] = obra
-            self.estoque[obra.id] = obra.quantidade
+            self.estoque[obra.ident] = obra.quantidade
         return self
 
     def __isub__(self, obra: Obra):
@@ -53,10 +54,10 @@ class Acervo:
         """
         self._valida_obra(obra)
         if obra.titulo in self.obras:
-            if self.estoque.get(obra.id, 0) > 1:
-                self.estoque[obra.id] -= 1
+            if self.estoque.get(obra.ident, 0) > 1:
+                self.estoque[obra.ident] -= 1
             else:
-                del self.estoque[obra.id]
+                del self.estoque[obra.ident]
                 del self.obras[obra.titulo]
         return self
 
@@ -146,7 +147,8 @@ class Acervo:
 
     def relatorio_inventario(self) -> Table:
         """
-        Gera uma tabela formatada com todas as obras cadastradas no acervo e suas quantidades.
+        Gera uma tabela formatada com todas as obras cadastradas no banco de dados
+        e suas quantidades disponíveis em estoque.
 
         Returns:
             Table: Tabela formatada com dados das obras.
@@ -158,64 +160,66 @@ class Acervo:
         tabela.add_column("Categoria", justify="left")
         tabela.add_column("Quantidade", justify="right")
 
-        for obra in sorted(self.obras.values(), key=lambda o: o.titulo):
-            qtd = self.estoque.get(obra.id, 0)
-            tabela.add_row(obra.titulo, obra.autor, str(obra.ano), obra.categoria, str(qtd))
+        try:
+            conn = conectar()
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT titulo, autor, ano, categoria, quantidade
+                FROM obras
+                ORDER BY titulo;
+            """)
+
+            resultados = cur.fetchall()
+            for titulo, autor, ano, categoria, quantidade in resultados:
+                tabela.add_row(titulo, autor, str(ano), categoria, str(quantidade))
+
+        except Exception as e:
+            print(f"Erro ao gerar relatório: {e}")
+
+        finally:
+            cur.close()
+            conn.close()
+
         return tabela
 
     def relatorio_debitos(self) -> Table:
         """
-        Gera uma tabela com os usuários que possuem empréstimos em atraso.
-
-        Returns:
-            Table: Tabela com nome do usuário e valor da multa.
+        Gera uma tabela com os usuários que devolveram obras com atraso,
+        mostrando a multa (R$5 por dia de atraso).
         """
-        tabela = Table(title="Débitos em aberto")
+        tabela = Table(title="Usuários com Débitos (Multa por Atraso)")
         tabela.add_column("Usuário", style="yellow")
         tabela.add_column("Multa (R$)", justify="right", style="red")
 
-        hoje = date.today()
-        multas = {}
-        for emprestimo in self.historico_emprestimos:
-            if emprestimo.data_devolucao is None:
-                atraso = emprestimo.dias_atraso(hoje)
-                if atraso > 0:
-                    nome = emprestimo.usuario.nome
-                    multas[nome] = multas.get(nome, 0) + atraso
+        try:
+            conn = conectar()
+            cur = conn.cursor()
 
-        for usuario, valor in multas.items():
-            tabela.add_row(usuario, f"{valor:.2f}")
+            # Busca todos os empréstimos que já foram devolvidos e que tiveram atraso
+            cur.execute("""
+                SELECT u.nome, e.data_prev_devol, e.data_devol
+                FROM emprestimos e
+                JOIN usuarios u ON e.usuario = u.identificador
+                WHERE e.data_devol IS NOT NULL AND e.data_devol > e.data_prev_devol;
+            """)
+
+            resultados = cur.fetchall()
+
+            for nome, data_prev_devol, data_devol in resultados:
+                dias_atraso = (data_devol - data_prev_devol).days
+                multa = dias_atraso * 5.0
+                tabela.add_row(nome, f"{multa:.2f}")
+
+        except Exception as e:
+            print(f"Erro ao gerar relatório de débitos: {e}")
+
+        finally:
+            if cur: cur.close()
+            if conn: conn.close()
+
         return tabela
 
-    def historico_usuario(self, usuario: Usuario) -> Table:
-        """
-        Exibe o histórico de empréstimos de um usuário em formato de tabela.
-
-        Args:
-            usuario (Usuario): Usuário para consulta.
-
-        Returns:
-            Table: Tabela com obras, datas e status dos empréstimos.
-        """
-        tabela = Table(title=f"Histórico de {usuario.nome}")
-        tabela.add_column("Obra", style="cyan")
-        tabela.add_column("Retirada", justify="center")
-        tabela.add_column("Prev. Devol.", justify="center")
-        tabela.add_column("Devolução", justify="center")
-        tabela.add_column("Status", justify="center", style="magenta")
-
-        for emp in self.historico_emprestimos:
-            if emp.usuario == usuario:
-                status = "Devolvido" if emp.data_devolucao else "Em aberto"
-                devol = emp.data_devolucao.strftime('%d/%m/%Y') if emp.data_devolucao else "-"
-                tabela.add_row(
-                    emp.obra.titulo,
-                    emp.data_retirada.strftime('%d/%m/%Y'),
-                    emp.data_prev_devol.strftime('%d/%m/%Y'),
-                    devol,
-                    status
-                )
-        return tabela
 
     def _valida_obra(self, obra):
         """
@@ -229,3 +233,45 @@ class Acervo:
         """
         if not isinstance(obra, Obra):
             raise TypeError(f"Esperado Obra, mas veio {type(obra).__name__}")
+
+    def historico_usuario(self, usuario):
+
+        tabela = Table(title=f"Histórico de Empréstimos - {usuario.nome}")
+        tabela.add_column("ID", justify="center")
+        tabela.add_column("Título", style="cyan")
+        tabela.add_column("Data Retirada", justify="center")
+        tabela.add_column("Data Prev. Devolução", justify="center")
+        tabela.add_column("Data Devolução", justify="center")
+        tabela.add_column("Situação", justify="center", style="magenta")
+
+        try:
+            conn = conectar()
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT e.identificador, o.titulo, e.data_retirada, e.data_prev_devol, e.data_devol
+                FROM emprestimos e
+                JOIN obras o ON o.identificador = e.obra
+                WHERE e.usuario = %s
+                ORDER BY e.data_retirada DESC
+            """, (str(usuario.ident),))  # <- aqui usamos o UUID, não o objeto
+
+            for row in cur.fetchall():
+                emp_id, titulo, retirada, prev_devol, devolucao = row
+                status = "Devolvido" if devolucao else "Pendente"
+                tabela.add_row(
+                    str(emp_id),
+                    titulo,
+                    retirada.strftime("%d/%m/%Y"),
+                    prev_devol.strftime("%d/%m/%Y"),
+                    devolucao.strftime("%d/%m/%Y") if devolucao else "-",
+                    status
+                )
+
+        except Exception as e:
+            print(f"Erro ao gerar histórico: {e}")
+        finally:
+            cur.close()
+            conn.close()
+
+        return tabela

@@ -37,7 +37,7 @@ class Obra(BaseEntity):
             categoria (str): Categoria/assunto.
             quantidade (int): Número de exemplares disponíveis.
         """
-        super().__init__()
+        self.ident = uuid.uuid4()
         self.titulo = titulo
         self.autor = autor
         self.ano = ano
@@ -67,7 +67,7 @@ class Usuario(BaseEntity):
             nome (str): Nome do usuário.
             email (str): E-mail de contato.
         """
-        super().__init__()
+        self.ident = uuid.uuid4()
         self.nome = nome
         self.email = email
 
@@ -89,7 +89,7 @@ class Emprestimo(BaseEntity):
             data_retirada (date): Data em que a obra foi retirada.
             data_prev_devol (date): Data prevista de devolução.
         """
-        super().__init__()
+        self.ident = uuid.uuid4()
         self.obra = obra
         self.usuario = usuario 
         self.data_retirada = data_retirada
