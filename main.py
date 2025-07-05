@@ -332,5 +332,7 @@ def atualizar_quantidade_obra(titulo: str, quantidade_retirada: int = 1):
             conn.close()
 
 if __name__ == "__main__":
-    print("Bem-vindo ao Sistema de Acervo Bibliográfico 📚")
+    print("=====================================================")
+    print("===Bem-vindo ao Sistema de Acervo Bibliográfico 📚===")
+    print("=====================================================")
     menu_principal()
