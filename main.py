@@ -1,8 +1,9 @@
 from models import Obra, Usuario, Emprestimo
 from core import Acervo
 from datetime import datetime, timedelta, date
-from repositorio import salvar_obra, salvar_usuario, salvar_emprestimo, deletar_obra, deletar_user, deletar_emprestimos, registrar_devolucao_interativa, renovar_emprestimo, buscar_id_obra_por_titulo
+import re
 from rich.console import Console
+from rich.table import Table
 from connect import conectar
 import uuid, psycopg2
 
@@ -69,9 +70,10 @@ def menu_admin():
                 print("Ano e quantidade devem ser números inteiros.")
                 continue
             categoria = input("Categoria: ")
-            obra = Obra(titulo, autor, ano, categoria, quantidade)
+            qtd_disponivel = quantidade
+            obra = Obra(titulo, autor, ano, categoria, quantidade, qtd_disponivel)
             acervo += obra
-            salvar_obra(obra)
+            acervo.adicionar(obra)
             print(f"Obra '{titulo}' cadastrada com sucesso!")
         elif opcao == '2':
             titulo = input("Título da obra a remover: ").strip()
@@ -86,7 +88,7 @@ def menu_admin():
 
                 if resultado:
                     obra_id = resultado[0]
-                    deletar_obra(obra_id)  # Remove no banco
+                    acervo.remover(obra_id)  # Remove no banco
                     print(f"Obra '{titulo}' removida com sucesso.")
                 else:
                     print("Obra não encontrada.")
@@ -100,9 +102,32 @@ def menu_admin():
             nome = input("Nome: ")
             email = input("Email: ")
             usuario = Usuario(nome, email)
-            salvar_usuario(usuario)
+            acervo.salvar_usuario(usuario)
             print(f"Usuário '{nome}' cadastrado com sucesso!")
         elif opcao == '4':
+            tabela = Table(title=f"Usuários cadastrados")
+            tabela.add_column("Nome", justify="center", style="cyan")
+            tabela.add_column("Email", justify="center", style="magenta")
+
+            try:
+                conn = conectar()
+                cur = conn.cursor()
+
+                cur.execute(""" 
+                    SELECT nome, email FROM usuarios;
+                """)
+                resultados = cur.fetchall()
+
+                if resultados:
+                    for row in resultados:
+                        nome, email = row
+                        tabela.add_row(nome, email)
+                    console.print(tabela)
+                else:
+                    print("Nenhum usuário cadastrado.")
+            except Exception as e:
+                print(f"Erro ao buscar usuários: {e}")
+
             nome = input("Nome do usuário a remover: ").strip()
             try:
                 # Buscar usuário por nome (ignorando letras maiusculas e minusculas)
@@ -112,13 +137,14 @@ def menu_admin():
                 """, (nome,))
                 resultado = cur.fetchone()
 
+
                 if resultado:
                     usuario_id = resultado[0]
-                    deletar_user(usuario_id)
+                    acervo.deletar_user(usuario_id)  # Remove no banco
                     print(f"Usuário {nome} removido com sucesso!")
                 else:
-                    print("Uusário não encontrado!")
-                
+                    print("Usuário não encontrado!")
+
             except Exception as e:
                 print(f"Erro ao remover usuário: {e}")
             finally:
@@ -137,7 +163,7 @@ def menu_admin():
 
                 if resultado:
                     emprestimo_id = resultado[0]
-                    deletar_emprestimos(emprestimo_id)
+                    acervo.deletar_emprestimos(emprestimo_id)  # Remove no banco
                     print(f"Emprestimos da obra {titulo} excluida com sucesso!")
                 else:
                     print("Obra não encontrada!")
@@ -200,15 +226,15 @@ def menu_usuario():
                 hoje = date.today()
                 nova_data = hoje + timedelta(days=dias)
                 emprestimo = Emprestimo(obra, usuario, hoje, nova_data)
-                salvar_emprestimo(emprestimo)
+                acervo.emprestar(emprestimo)
                 atualizar_quantidade_obra(obra.titulo)
                 print("Empréstimo realizado com sucesso!")
             except ValueError as e:
                 print(f"Erro: {e}")
         elif opcao == '2':
-            registrar_devolucao_interativa()
+            acervo.registrar_devolucao_interativa()
         elif opcao == '3':
-            renovar_emprestimo()
+            acervo.renovar()
         elif opcao == '4':
             nome = input("Nome do usuário: ")
             usuario = encontrar_usuario_por_nome(nome)
@@ -266,13 +292,13 @@ def encontrar_obra_por_titulo_iterativo(titulo_busca: str):
         cur = conn.cursor()
         # Busca todas as colunas necessárias de obras
         cur.execute("""
-            SELECT identificador, titulo, autor, ano, categoria, quantidade
+            SELECT identificador, titulo, autor, ano, categoria, quantidade, quantidade_disponivel
               FROM obras;
         """)
         linhas = cur.fetchall()
 
         for row in linhas:
-            id_str, titulo_db, autor, ano, categoria, quantidade = row
+            id_str, titulo_db, autor, ano, categoria, quantidade, quantidade_disponivel = row
             if titulo_db.lower() == titulo_busca:
                 return Obra(
                     titulo=titulo_db,
@@ -280,6 +306,7 @@ def encontrar_obra_por_titulo_iterativo(titulo_busca: str):
                     ano=ano,
                     categoria=categoria,
                     quantidade=quantidade,
+                    quantidade_disponivel=quantidade_disponivel
                 )
         # não encontrou
         return None
@@ -306,7 +333,7 @@ def atualizar_quantidade_obra(titulo: str, quantidade_retirada: int = 1):
 
         # Verifica a quantidade atual
         cursor.execute("""
-            SELECT quantidade FROM obras
+            SELECT quantidade_disponivel FROM obras
             WHERE LOWER(titulo) = LOWER(%s)
         """, (titulo,))
         resultado = cursor.fetchone()
@@ -319,7 +346,7 @@ def atualizar_quantidade_obra(titulo: str, quantidade_retirada: int = 1):
 
             cursor.execute("""
                 UPDATE obras
-                SET quantidade = %s
+                SET quantidade_disponivel = %s
                 WHERE LOWER(titulo) = LOWER(%s)
             """, (nova_quantidade, titulo))
             conn.commit()
@@ -330,6 +357,41 @@ def atualizar_quantidade_obra(titulo: str, quantidade_retirada: int = 1):
     finally:
         if conn:
             conn.close()
+
+def validar_email(email: str) -> bool:
+    """
+    Valida se um e-mail tem o formato correto.
+
+    Args:
+        email (str): E-mail a ser validado.
+
+    Returns:
+        bool: True se o e-mail for válido, False caso contrário.
+    """
+    padrao = r'^[\w\.-]+@[\w\.-]+\.\w{2,}$'
+    return bool(re.match(padrao, email))
+
+def buscar_id_obra_por_titulo(titulo):
+    """
+    Busca o ID de uma obra pelo seu título.
+
+    Args:
+        titulo (str): Título da obra a ser buscada.
+
+    Returns:
+        str: Identificador da obra, ou None se não encontrada.
+    """
+    conn = conectar()
+    cur = conn.cursor()
+    cur.execute("SELECT identificador FROM obras WHERE LOWER(titulo) = LOWER(%s);", (titulo,))
+    resultado = cur.fetchone()
+    cur.close()
+    conn.close()
+    
+    if resultado:
+        return resultado[0]
+    else:
+        return None
 
 if __name__ == "__main__":
     print("=====================================================")

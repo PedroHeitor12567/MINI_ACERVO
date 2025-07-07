@@ -28,7 +28,7 @@ class BaseEntity:
 class Obra(BaseEntity):
     """Representa uma obra no acervo (livro, revista, etc)."""
 
-    def __init__(self, titulo, autor, ano, categoria, quantidade):
+    def __init__(self, titulo, autor, ano, categoria, quantidade, quantidade_disponivel):
         """
         Args:
             titulo (str): Título da obra.
@@ -43,6 +43,7 @@ class Obra(BaseEntity):
         self.ano = ano
         self.categoria = categoria
         self.quantidade = quantidade
+        self.quantidade_disponivel = quantidade_disponivel
 
     def disponivel(self, estoque):
         """Verifica se há pelo menos um exemplar disponível no estoque.

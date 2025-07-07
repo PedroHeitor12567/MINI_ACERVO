@@ -38,10 +38,9 @@ O projeto está organizado em 6 arquivos principais:
 | Arquivo                | Função                                                                 |
 |------------------------|------------------------------------------------------------------------|
 | `acervo/__init__.py`   | Arquivo de inicialização do pacote `acervo`. Pode conter metadados ou inicializações necessárias. |
-| `acervo/core.py`       | Contém as funções de controle de menu principal, login e navegação entre as interfaces de usuário e admin. |
+| `acervo/core.py`       | Contém as funções de controle de menu principal, login e navegação entre as interfaces de usuário e admin, tem todas as interações entre o código e o banco de dados. |
 | `acervo/models.py`     | Define as classes e estruturas de dados principais, como `Usuario`, `Obra`, `Emprestimo` etc. Usa POO. |
 | `acervo/connect.py`    | Gerencia a conexão com o banco de dados PostgreSQL (função `conectar()`). |
-| `acervo/repositorio.py`| Implementa funções de acesso ao banco de dados (CRUD), como salvar, buscar, atualizar e remover obras, usuários e empréstimos. |
 | `main.py`              | Arquivo principal que inicia o sistema. Chama `menu_principal()` e integra todos os módulos. |
 
 ---
@@ -103,4 +102,4 @@ Este projeto está licenciado sob a [MIT License](LICENSE).
 
 - [@PedroHeitor12567](https://github.com/PedroHeitor12567) 
 - [@Wallyson-fer](https://github.com/Wallyson-fer)
-## Desenvolvedores Python & Backend 💻
+### Desenvolvedores Python & Backend 💻

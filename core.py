@@ -1,7 +1,9 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from rich.table import Table
 from models import Obra, Usuario, Emprestimo
 from connect import conectar
+from uuid import uuid4
+from rich.console import Console
 
 class Acervo:
     """
@@ -63,73 +65,265 @@ class Acervo:
 
     def adicionar(self, obra: Obra):
         """
-        Adiciona uma obra ao acervo (forma alternativa ao operador '+=')
+        Salva uma instância de obra no banco de dados.
 
         Args:
-            obra (Obra): Obra a ser adicionada.
+            obra (Obra): Objeto obra contendo os dados a serem salvos.
         """
-        self += obra
+        conn = conectar()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO obras (identificador, titulo, autor, ano, categoria, quantidade, quantidade_disponivel)
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """, (
+            str(obra.ident), 
+            obra.titulo,
+            obra.autor,
+            obra.ano,
+            obra.categoria,
+            obra.quantidade,
+            obra.quantidade_disponivel
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Obra salva com sucesso!")
 
-    def remover(self, obra: Obra):
+    def remover(self, id_obra):
         """
-        Remove uma obra do acervo (forma alternativa ao operador '-=')
+        Remove uma obra do banco de dados pelo seu identificador.
 
         Args:
-            obra (Obra): Obra a ser removida.
+            id_obra (str): Identificador único da obra a ser removida.
         """
-        self -= obra
+        conn = conectar()
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM obras WHERE identificador = %s;
+        """, (str(id_obra),))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Obra excluída com sucesso.")
 
-    def emprestar(self, obra: Obra, usuario: Usuario, dias=7):
+    def emprestar(self, emprestimo: Emprestimo):
         """
-        Realiza o empréstimo de uma obra para um usuário, se houver exemplar disponível.
+        Salva uma instância de empréstimo no banco de dados usando o objeto completo.
 
         Args:
-            obra (Obra): Obra a ser emprestada.
-            usuario (Usuario): Usuário que está pegando emprestado.
-            dias (int, opcional): Prazo de empréstimo em dias. Padrão é 7.
-
-        Returns:
-            Emprestimo: Objeto representando o empréstimo.
-
-        Raises:
-            ValueError: Se a obra estiver indisponível.
+            emprestimo (Emprestimo): Objeto empréstimo contendo os dados a serem salvos.
         """
-        self._valida_obra(obra)
-        if self.estoque.get(obra.id, 0) < 1:
-            raise ValueError(f"Obra '{obra.titulo}' indisponível.")
-        data_retirada = date.today()
-        data_prev_devol = data_retirada + timedelta(days=dias)
-        emprestimo = Emprestimo(obra, usuario, data_retirada, data_prev_devol)
-        self.estoque[obra.id] -= 1
-        self.historico_emprestimos.append(emprestimo)
-        return emprestimo
+        
+        conn = conectar()
+        cur = conn.cursor()
+        id_emprestimo = str(uuid4())  # Gerar um novo ID único para o empréstimo
 
-    def devolver(self, emprestimo: Emprestimo, data_dev: date):
-        """
-        Registra a devolução de uma obra e atualiza o estoque.
+        # Buscar o ID da obra pelo título
+        cur.execute("SELECT identificador FROM obras WHERE titulo = %s", (emprestimo.obra.titulo,))
+        obra_row = cur.fetchone()
+        if not obra_row:
+            print(f"Obra '{emprestimo.obra.titulo}' não encontrada.")
+            cur.close()
+            conn.close()
+            return
+        id_obra = obra_row[0]
 
-        Args:
-            emprestimo (Emprestimo): Objeto de empréstimo a ser finalizado.
-            data_dev (date): Data em que a devolução foi realizada.
-        """
-        emprestimo.marcar_devolucao(data_dev)
-        self.estoque[emprestimo.obra.id] = self.estoque.get(emprestimo.obra.id, 0) + 1
+        # Buscar o ID do usuário pelo nome
+        cur.execute("SELECT identificador FROM usuarios WHERE nome = %s", (emprestimo.usuario.nome,))
+        user_row = cur.fetchone()
+        if not user_row:
+            print(f"Usuário '{emprestimo.usuario.nome}' não encontrado.")
+            cur.close()
+            conn.close()
+            return
+        id_usuario = user_row[0]
 
-    def renovar(self, emprestimo: Emprestimo, dias_extra: int):
-        """
-        Prorroga a data prevista de devolução do empréstimo.
+        # Inserir empréstimo no banco
+        cur.execute("""
+            INSERT INTO emprestimos (identificador, obra, usuario, data_retirada, data_prev_devol)
+            VALUES (%s, %s, %s, %s, %s);
+        """, (
+            id_emprestimo,
+            id_obra,
+            id_usuario,
+            emprestimo.data_retirada,
+            emprestimo.data_prev_devol
+        ))
 
-        Args:
-            emprestimo (Emprestimo): Empréstimo a ser renovado.
-            dias_extra (int): Dias adicionais para prorrogação.
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Empréstimo salvo com sucesso!")
 
-        Raises:
-            ValueError: Se a nova data for anterior ou igual à data atual de devolução prevista.
-        """
-        nova_data = emprestimo.data_prev_devol + timedelta(days=dias_extra)
-        if nova_data <= emprestimo.data_prev_devol:
-            raise ValueError("Nova data deve ser posterior à atual.")
-        emprestimo.data_prev_devol = nova_data
+    def registrar_devolucao_interativa():
+        nome = input("Nome do usuário: ").strip()
+
+        try:
+            conn = conectar()
+            cur = conn.cursor()
+
+            # Busca o usuário pelo nome (case-insensitive)
+            cur.execute("SELECT identificador FROM usuarios WHERE LOWER(nome) = LOWER(%s);", (nome,))
+            resultado = cur.fetchone()
+            if not resultado:
+                print("Usuário não encontrado.")
+                return
+            id_usuario = resultado[0]
+
+            # Busca os empréstimos pendentes com quantidade para atualizar estoque depois
+            cur.execute("""
+                SELECT e.identificador, o.titulo, e.data_retirada, e.data_prev_devol, o.quantidade, e.obra
+                FROM emprestimos e
+                JOIN obras o ON e.obra = o.identificador
+                WHERE e.usuario = %s AND e.data_devol IS NULL;
+            """, (id_usuario,))
+            emprestimos = cur.fetchall()
+
+            if not emprestimos:
+                print("Nenhum empréstimo em aberto para este usuário.")
+                return
+
+            # Exibe os empréstimos pendentes
+            table = Table(title="Empréstimos Pendentes")
+            table.add_column("Índice", justify="center", style="cyan")
+            table.add_column("Obra", justify="left", style="magenta")
+            table.add_column("Quantidade", justify="center", style="green")
+            table.add_column("Retirada", justify="center", style="yellow")
+            table.add_column("Prev. Devolução", justify="center", style="yellow")
+
+            for i, emp in enumerate(emprestimos):
+                emp_id, titulo, retirada, prev_devol, quantidade, obra_id = emp
+                table.add_row(
+                str(i),
+                titulo,
+                str(quantidade),
+                retirada.strftime('%d/%m/%Y'),
+                prev_devol.strftime('%d/%m/%Y')
+                )
+            console = Console()
+            console.print(table)
+
+            # Escolhe o empréstimo a ser devolvido
+            try:
+                i = int(input("Escolha o índice do empréstimo a devolver: "))
+                if i < 0 or i >= len(emprestimos):
+                    print("Índice inválido.")
+                    return
+            except ValueError:
+                print("Digite um índice válido.")
+                return
+
+            id_emprestimo = emprestimos[i][0]  # ID do empréstimo
+            obra_id = emprestimos[i][5]
+
+            # Solicita a data de devolução
+            data_devol = input("Data da devolução (DD/MM/AAAA): ")
+            try:
+                data_devol = datetime.strptime(data_devol, "%d/%m/%Y").date()
+            except ValueError:
+                print("Formato de data inválido.")
+                return
+
+            # Atualiza a data de devolução no empréstimo
+            cur.execute("""
+                UPDATE emprestimos
+                SET data_devol = %s
+                WHERE identificador = %s;
+            """, (data_devol, id_emprestimo))
+
+            # Atualiza a quantidade disponível da obra, somando a quantidade devolvida
+            cur.execute("""
+                UPDATE obras
+                SET quantidade_disponivel = quantidade_disponivel + 1
+                WHERE identificador = %s;
+            """, (obra_id,))
+
+            conn.commit()
+            print("Devolução registrada e estoque atualizado com sucesso!")
+
+        except Exception as e:
+            print(f"Erro: {e}")
+            conn.rollback()
+        finally:
+            cur.close()
+            conn.close()
+    def renovar(self):
+        nome_user = input("Digite seu nome de usuário: ")
+
+        try:
+            conn = conectar()
+            cur = conn.cursor()
+
+            # Busca o usuário pelo nome (case-insensitive)
+            cur.execute("SELECT identificador FROM usuarios WHERE LOWER(nome) = LOWER(%s);", (nome_user,))
+            resultado = cur.fetchone()
+            if not resultado:
+                print("Usuário não encontrado.")
+                return
+            id_usuario = resultado[0]
+
+            # Busca os empréstimos pendentes com o ID sequencial do empréstimo
+            cur.execute("""
+                SELECT e.id, o.titulo, e.data_retirada, e.data_prev_devol
+                FROM emprestimos e
+                JOIN obras o ON e.obra = o.identificador
+                WHERE e.usuario = %s AND e.data_devol IS NULL;
+            """, (id_usuario,))
+            emprestimos = cur.fetchall()
+
+            if not emprestimos:
+                print("Nenhum empréstimo em aberto para este usuário.")
+                return
+
+            # Exibe os empréstimos pendentes em uma tabela colorida (igual ao registrar_devolucao_interativa)
+            table = Table(title="Empréstimos Pendentes")
+            table.add_column("Índice", justify="center", style="cyan")
+            table.add_column("Obra", justify="left", style="magenta")
+            table.add_column("Retirada", justify="center", style="yellow")
+            table.add_column("Prev. Devolução", justify="center", style="yellow")
+
+            for i, emp in enumerate(emprestimos):
+                emp_id, titulo, retirada, prev_devol = emp
+                table.add_row(
+                    str(i),
+                    titulo,
+                    retirada.strftime('%d/%m/%Y'),
+                    prev_devol.strftime('%d/%m/%Y')
+                )
+            console = Console()
+            console.print(table)
+            try:
+                i = int(input("Escolha o índice do empréstimo a revonar: "))
+                if i < 0 or i >= len(emprestimos):
+                    print("Índice inválido.")
+                    return
+            except ValueError:
+                print("Digite um índice válido.")
+                return
+
+            id_emprestimo = emprestimos[i][0]  # Pega o ID sequencial do empréstimo
+
+            data_devol = input("Data da renovação de emprestimo (DD/MM/AAAA): ")
+            try:
+                data_devol = datetime.strptime(data_devol, "%d/%m/%Y").date()
+            except ValueError:
+                print("Formato de data inválido.")
+                return
+
+            # Atualiza o empréstimo no banco com a data de devolução
+            cur.execute("""
+                UPDATE emprestimos
+                SET data_prev_devol = %s
+                WHERE id = %s;
+            """, (data_devol, id_emprestimo))
+            conn.commit()
+            print("Renovação de empréstimo registrada com sucesso!")
+        
+        except Exception as e:
+            print(f"Erro: {e}")
+        finally:
+            cur.close()
+            conn.close()
 
     def valor_multa(self, emprestimo: Emprestimo, data_ref: date) -> float:
         """
@@ -140,7 +334,7 @@ class Acervo:
             data_ref (date): Data de referência para verificar atraso.
 
         Returns:
-            float: Valor da multa (R$1,00 por dia de atraso).
+            float: Valor da multa (R$5,00 por dia de atraso).
         """
         atraso = emprestimo.dias_atraso(data_ref)
         return float(atraso)
@@ -156,23 +350,24 @@ class Acervo:
         tabela = Table(title="Inventário do Acervo")
         tabela.add_column("Título", justify="left", style="cyan", no_wrap=True)
         tabela.add_column("Autor", style="magenta")
-        tabela.add_column("Ano", justify="center")
-        tabela.add_column("Categoria", justify="left")
-        tabela.add_column("Quantidade", justify="right")
+        tabela.add_column("Ano", justify="center", style="green")
+        tabela.add_column("Categoria", justify="left", style="blue")
+        tabela.add_column("Quantidade", justify="right", style="yellow")
+        tabela.add_column("Disponível", justify="right", style="yellow")
 
         try:
             conn = conectar()
             cur = conn.cursor()
 
             cur.execute("""
-                SELECT titulo, autor, ano, categoria, quantidade
+                SELECT titulo, autor, ano, categoria, quantidade, quantidade_disponivel
                 FROM obras
                 ORDER BY titulo;
             """)
 
             resultados = cur.fetchall()
-            for titulo, autor, ano, categoria, quantidade in resultados:
-                tabela.add_row(titulo, autor, str(ano), categoria, str(quantidade))
+            for titulo, autor, ano, categoria, quantidade, quantidade_disponivel in resultados:
+                tabela.add_row(titulo, autor, str(ano), categoria, str(quantidade), str(quantidade_disponivel))
 
         except Exception as e:
             print(f"Erro ao gerar relatório: {e}")
@@ -275,3 +470,59 @@ class Acervo:
             conn.close()
 
         return tabela
+    
+    def salvar_usuario(self, usuario):
+        """
+        Salva uma instância de usuário no banco de dados.
+
+        Args:
+            usuario (Usuario): Objeto usuário contendo os dados a serem salvos.
+        """
+        conn = conectar()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO usuarios (identificador, nome, email)
+            VALUES (%s, %s, %s);
+        """, (
+            str(usuario.ident),
+            usuario.nome,
+            usuario.email
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Usuário salvo com sucesso!")
+
+    def deletar_user(self,id_user):
+        """
+        Remove um usuário do banco de dados pelo seu identificador.
+
+        Args:
+            id_user (str): Identificador único do usuário a ser removido.
+        """
+        conn = conectar()
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM usuarios WHERE identificador = %s;
+        """, (str(id_user),))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Usuário excluído com sucesso.")
+
+    def deletar_emprestimos(self, id_obra):
+        """
+        Remove todos os empréstimos relacionados a uma obra específica.
+
+        Args:
+            id_obra (str): Identificador único da obra cujos empréstimos serão removidos.
+        """
+        conn = conectar()
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM emprestimos WHERE obra = %s;
+        """, (str(id_obra),))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Empréstimos da obra excluídos com sucesso.")
