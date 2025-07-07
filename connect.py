@@ -15,7 +15,7 @@ def conectar():
             host="localhost",
             database="Acervo",
             user="postgres",
-            password="plph2919"
+            password="sua senha"
         )
         return conn
     except pg.DatabaseError as e:

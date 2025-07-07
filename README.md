@@ -62,7 +62,7 @@ O projeto está organizado em 6 arquivos principais:
   ```bash
   pip install -r requeriments.txt
   ```
-
+- Possuir pgAdmin e senha
 ---
 
 ## 🧪 Como Rodar o Projeto
