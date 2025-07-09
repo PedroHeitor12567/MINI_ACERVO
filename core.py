@@ -155,7 +155,7 @@ class Acervo:
         conn.close()
         print("Empréstimo salvo com sucesso!")
 
-    def registrar_devolucao_interativa():
+    def registrar_devolucao_interativa(self):
         nome = input("Nome do usuário: ").strip()
 
         try:

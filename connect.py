@@ -1,4 +1,8 @@
 import psycopg2 as pg
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def conectar():
     """
@@ -12,12 +16,17 @@ def conectar():
     """
     try:
         conn = pg.connect(
-            host="localhost",
-            database="Acervo",
-            user="postgres",
-            password="sua senha"
+            host=os.getenv("DB_HOST", "localhost"),
+            database=os.getenv("DB_DATABASE"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
         )
         return conn
     except pg.DatabaseError as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         raise
+conn = conectar()
+if conn:
+    print("Conexão com o servidor estabelecida com sucesso!")
+else:
+    print("Falha ao conectar com o servidor.")
