@@ -1,6 +1,6 @@
-from datetime import date, timedelta, datetime
+from datetime import date, datetime
 from rich.table import Table
-from models import Obra, Usuario, Emprestimo
+from models import Obra, Emprestimo
 from connect import conectar
 from uuid import uuid4
 from rich.console import Console

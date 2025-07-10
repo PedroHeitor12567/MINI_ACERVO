@@ -1,11 +1,11 @@
 from models import Obra, Usuario, Emprestimo
 from core import Acervo
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 import re
 from rich.console import Console
 from rich.table import Table
 from connect import conectar
-import uuid, psycopg2
+import psycopg2
 
 console = Console()
 
